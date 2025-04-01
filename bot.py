@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from datetime import datetime, time, timedelta
 from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import uvicorn
 
@@ -23,7 +22,6 @@ settings = {
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 async def send_daily_message():
     token = BOT_TOKEN
