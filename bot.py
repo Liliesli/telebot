@@ -9,6 +9,33 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 import uvicorn
 
+
+import threading
+import requests
+import time
+
+# 주기적으로 서버에 ping을 보내는 함수
+def ping_server():
+    while True:
+        try:
+            # Render.com에서 제공하는 서버 URL로 대체
+            requests.get("https://telebot-1frg.onrender.com")
+            print("서버에 ping 전송")
+        except Exception as e:
+            print(f"ping 전송 중 오류 발생: {e}")
+        time.sleep(600)  # 10분마다 ping 전송
+
+# 서버 시작 시 ping 스레드 시작
+@app.on_event("startup")
+async def startup_event():
+    print("서버 시작됨")
+    # ping 스레드 시작
+    threading.Thread(target=ping_server, daemon=True).start()
+    await restart_bot()
+
+
+
+
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
