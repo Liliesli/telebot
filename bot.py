@@ -17,7 +17,8 @@ PORT = int(os.getenv('PORT', 8000))
 # 전역 변수로 설정 저장
 settings = {
     "target_time": "23:10",
-    "is_active": True
+    "is_active": True,
+    "message": "미장 알람"
 }
 
 app = FastAPI()
@@ -29,7 +30,7 @@ async def send_daily_message():
     chat_id = CHANNEL_ID
     bot = telegram.Bot(token=token)
 
-    message = "미장 알람"
+    message = settings["message"]
     await bot.send_message(chat_id, message)
 
 async def get_next_run_time(target_time):
@@ -72,10 +73,12 @@ async def root(request: Request):
 @app.post("/settings")
 async def update_settings(
     target_time: str = Form(...),
-    is_active: bool = Form(False)
+    is_active: bool = Form(False),
+    message: str = Form(...)
 ):
     settings["target_time"] = target_time
     settings["is_active"] = is_active
+    settings["message"] = message
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/send_now")

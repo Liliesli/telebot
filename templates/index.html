@@ -19,6 +19,11 @@
                         <input type="time" class="form-control" id="target_time" name="target_time" 
                                value="{{ settings.target_time }}" required>
                     </div>
+                    <div class="mb-3">
+                        <label for="message" class="form-label">알람 메시지</label>
+                        <input type="text" class="form-control" id="message" name="message" 
+                               value="{{ settings.message }}" required>
+                    </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="is_active" name="is_active" 
                                {% if settings.is_active %}checked{% endif %}>
