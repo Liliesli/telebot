@@ -1,6 +1,7 @@
 import asyncio
 import telegram
 import os
+import json
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta, timezone
 from fastapi import FastAPI, Request, Form
@@ -19,15 +20,40 @@ kst = timezone(timedelta(hours=9))
 def get_korea_time():
     return datetime.now(kst)
 
-# 전역 변수로 설정 저장
-settings = {
+# 설정 파일 경로
+SETTINGS_FILE = "settings.json"
+
+# 기본 설정
+DEFAULT_SETTINGS = {
     "target_time": "23:20",
     "is_active": True,
     "message": "미장 알람"
 }
 
+def load_settings():
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"설정 파일 로드 중 오류 발생: {e}")
+    return DEFAULT_SETTINGS.copy()
+
+def save_settings(settings):
+    try:
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"설정 파일 저장 중 오류 발생: {e}")
+
+# 전역 변수로 설정 저장
+settings = load_settings()
+
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
+# 봇 태스크를 저장할 변수
+bot_task = None
 
 async def send_daily_message():
     token = BOT_TOKEN
@@ -62,7 +88,10 @@ async def run_bot():
             await asyncio.sleep(60)
             continue
 
+        # 설정된 시간을 파싱
         target_time = datetime.strptime(settings["target_time"], "%H:%M").time()
+        print(f"현재 설정된 시간: {settings['target_time']}")
+        
         next_run = await get_next_run_time(target_time)
         now = get_korea_time()
         
@@ -74,10 +103,20 @@ async def run_bot():
         
         await send_daily_message()
 
+async def restart_bot():
+    global bot_task
+    if bot_task:
+        bot_task.cancel()
+    bot_task = asyncio.create_task(run_bot())
+    print("봇 재시작됨")
+
 @app.on_event("startup")
 async def startup_event():
     print("서버 시작됨")
-    asyncio.create_task(run_bot())
+    # 시작 시 현재 시간 확인
+    now = get_korea_time()
+    print(f"서버 시작 시간: {now}")
+    await restart_bot()
 
 # 웹 라우트
 @app.get("/")
@@ -97,6 +136,8 @@ async def update_settings(
     settings["target_time"] = target_time
     settings["is_active"] = is_active
     settings["message"] = message
+    save_settings(settings)  # 설정을 파일에 저장
+    await restart_bot()  # 봇 재시작
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/send_now")
