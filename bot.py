@@ -2,7 +2,7 @@ import asyncio
 import telegram
 import os
 from dotenv import load_dotenv
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
@@ -32,10 +32,16 @@ async def send_daily_message():
     await bot.send_message(chat_id, message)
 
 async def get_next_run_time(target_time):
-    now = datetime.now()
-    next_run = datetime.combine(now.date(), target_time)
+    # 한국 시간대 설정 (UTC+9)
+    kst = timezone(timedelta(hours=9))
+    now = datetime.now(kst)
     
-    if now.time() > target_time:
+    # 오늘 날짜에 설정된 시간을 결합
+    next_run = datetime.combine(now.date(), target_time)
+    next_run = next_run.replace(tzinfo=kst)
+    
+    # 현재 시간이 설정된 시간보다 늦으면 다음날로 설정
+    if now > next_run:
         next_run += timedelta(days=1)
     
     return next_run
@@ -48,7 +54,8 @@ async def run_bot():
 
         target_time = datetime.strptime(settings["target_time"], "%H:%M").time()
         next_run = await get_next_run_time(target_time)
-        now = datetime.now()
+        kst = timezone(timedelta(hours=9))
+        now = datetime.now(kst)
         
         wait_seconds = (next_run - now).total_seconds()
         if wait_seconds > 0:
