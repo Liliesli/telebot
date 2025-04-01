@@ -3,10 +3,19 @@ import telegram
 import os
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta
+from fastapi import FastAPI
+import uvicorn
 
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
+PORT = int(os.getenv('PORT', 8000))
+
+app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "Bot is running"}
 
 async def send_daily_message():
     token = BOT_TOKEN
@@ -25,7 +34,7 @@ async def get_next_run_time(target_time):
     
     return next_run
 
-async def main():
+async def run_bot():
     target_time = time(22, 41)
     
     while True:
@@ -38,5 +47,9 @@ async def main():
         
         await send_daily_message()
 
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(run_bot())
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
