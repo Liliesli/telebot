@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta
 
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-CHANNEL_ID = int(os.getenv('TELEGRAM_CHANNEL_ID'))
+CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
 
 async def send_daily_message():
     token = BOT_TOKEN
