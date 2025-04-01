@@ -3,7 +3,10 @@ import telegram
 import os
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Form
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 import uvicorn
 
 load_dotenv()
@@ -11,11 +14,15 @@ BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
 PORT = int(os.getenv('PORT', 8000))
 
-app = FastAPI()
+# 전역 변수로 설정 저장
+settings = {
+    "target_time": "23:10",
+    "is_active": True
+}
 
-@app.get("/")
-async def root():
-    return {"message": "Bot is running"}
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 async def send_daily_message():
     token = BOT_TOKEN
@@ -35,9 +42,12 @@ async def get_next_run_time(target_time):
     return next_run
 
 async def run_bot():
-    target_time = time(23, 10)
-    
     while True:
+        if not settings["is_active"]:
+            await asyncio.sleep(60)
+            continue
+
+        target_time = datetime.strptime(settings["target_time"], "%H:%M").time()
         next_run = await get_next_run_time(target_time)
         now = datetime.now()
         
@@ -50,6 +60,28 @@ async def run_bot():
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(run_bot())
+
+# 웹 라우트
+@app.get("/")
+async def root(request: Request):
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "settings": settings}
+    )
+
+@app.post("/settings")
+async def update_settings(
+    target_time: str = Form(...),
+    is_active: bool = Form(False)
+):
+    settings["target_time"] = target_time
+    settings["is_active"] = is_active
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/send_now")
+async def send_now():
+    await send_daily_message()
+    return RedirectResponse(url="/", status_code=303)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)
