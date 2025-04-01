@@ -16,7 +16,7 @@ PORT = int(os.getenv('PORT', 8000))
 
 # 전역 변수로 설정 저장
 settings = {
-    "target_time": "23:10",
+    "target_time": "23:20",
     "is_active": True,
     "message": "미장 알람"
 }
