@@ -35,7 +35,7 @@ async def get_next_run_time(target_time):
     return next_run
 
 async def run_bot():
-    target_time = time(22, 41)
+    target_time = time(23, 10)
     
     while True:
         next_run = await get_next_run_time(target_time)
