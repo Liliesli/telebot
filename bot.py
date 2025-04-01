@@ -25,7 +25,7 @@ SETTINGS_FILE = "settings.json"
 
 # 기본 설정
 DEFAULT_SETTINGS = {
-    "target_time": "23:20",
+    "target_time": "22:30",
     "is_active": True,
     "message": "미장 알람"
 }
