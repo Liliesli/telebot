@@ -14,25 +14,6 @@ import threading
 import requests
 import time
 
-# 주기적으로 서버에 ping을 보내는 함수
-def ping_server():
-    while True:
-        try:
-            # Render.com에서 제공하는 서버 URL로 대체
-            requests.get("https://telebot-1frg.onrender.com")
-            print("서버에 ping 전송")
-        except Exception as e:
-            print(f"ping 전송 중 오류 발생: {e}")
-        time.sleep(600)  # 10분마다 ping 전송
-
-# 서버 시작 시 ping 스레드 시작
-@app.on_event("startup")
-async def startup_event():
-    print("서버 시작됨")
-    # ping 스레드 시작
-    threading.Thread(target=ping_server, daemon=True).start()
-    await restart_bot()
-
 
 
 
@@ -81,6 +62,26 @@ templates = Jinja2Templates(directory="templates")
 
 # 봇 태스크를 저장할 변수
 bot_task = None
+
+# 주기적으로 서버에 ping을 보내는 함수
+def ping_server():
+    while True:
+        try:
+            # Render.com에서 제공하는 서버 URL로 대체
+            requests.get("https://telebot-1frg.onrender.com")
+            print("서버에 ping 전송")
+        except Exception as e:
+            print(f"ping 전송 중 오류 발생: {e}")
+        time.sleep(600)  # 10분마다 ping 전송
+
+# 서버 시작 시 ping 스레드 시작
+@app.on_event("startup")
+async def startup_event():
+    print("서버 시작됨")
+    # ping 스레드 시작
+    threading.Thread(target=ping_server, daemon=True).start()
+    await restart_bot()
+
 
 async def send_daily_message():
     token = BOT_TOKEN
