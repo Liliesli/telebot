@@ -20,9 +20,14 @@ SERVER_URL = os.getenv('SERVER_URL', 'https://telebot-1frg.onrender.com')  # 서
 
 # 한국 시간대 고정 (UTC+9)
 kst = timezone(timedelta(hours=9))
+# 미국 시간대 추가 (UTC-4, EDT)
+edt = timezone(timedelta(hours=-4))
 
 def get_korea_time():
     return datetime.now(kst)
+
+def get_us_time():
+    return datetime.now(edt)
 
 # 설정 파일 경로
 SETTINGS_FILE = "settings.json"
@@ -103,10 +108,10 @@ async def run_bot():
                 print(f"{alarm_type} 알람이 비활성화되어 있거나 시간이 설정되지 않음")
                 continue
 
-            now = get_korea_time()
-            # 주말(토요일=5, 일요일=6) 체크
-            if now.weekday() >= 5:
-                print(f"주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+            us_now = get_us_time()
+            # 주말(토요일=5, 일요일=6) 체크 - 미국 시간 기준
+            if us_now.weekday() >= 5:
+                print(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
                 continue
 
             # 설정된 시간을 파싱
@@ -121,9 +126,9 @@ async def run_bot():
             
             if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
                 await asyncio.sleep(wait_seconds)
-                # 대기 후 다시 한번 주말 체크
-                if get_korea_time().weekday() >= 5:
-                    print(f"주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                # 대기 후 다시 한번 주말 체크 - 미국 시간 기준
+                if get_us_time().weekday() >= 5:
+                    print(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
                     continue
                 await send_daily_message(alarm_type)
 
