@@ -2,6 +2,9 @@ import asyncio
 import telegram
 import os
 import json
+import threading
+import requests
+import time
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta, timezone
 from fastapi import FastAPI, Request, Form
@@ -13,6 +16,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
 PORT = int(os.getenv('PORT', 8000))
+SERVER_URL = os.getenv('SERVER_URL', 'https://telebot-1frg.onrender.com')  # 서버 URL 환경변수 추가
 
 # 한국 시간대 고정 (UTC+9)
 kst = timezone(timedelta(hours=9))
@@ -122,12 +126,24 @@ async def restart_bot():
     bot_task = asyncio.create_task(run_bot())
     print("봇 재시작됨")
 
+# 주기적으로 서버에 ping을 보내는 함수
+def ping_server():
+    while True:
+        try:
+            requests.get(SERVER_URL)
+            print("서버에 ping 전송")
+        except Exception as e:
+            print(f"ping 전송 중 오류 발생: {e}")
+        time.sleep(600)  # 10분마다 ping 전송
+
 @app.on_event("startup")
 async def startup_event():
     print("서버 시작됨")
     # 시작 시 현재 시간 확인
     now = get_korea_time()
     print(f"서버 시작 시간: {now}")
+    # ping 스레드 시작
+    threading.Thread(target=ping_server, daemon=True).start()
     await restart_bot()
 
 # 웹 라우트
