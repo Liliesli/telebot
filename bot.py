@@ -5,6 +5,8 @@ import json
 import threading
 import requests
 import time
+import csv
+from io import StringIO
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta, timezone
 from fastapi import FastAPI, Request, Form, UploadFile, File
@@ -247,13 +249,34 @@ async def send_now(alarm_type: str):
 @app.post("/upload-holidays")
 async def upload_holidays(file: UploadFile = File(...)):
     try:
-        # 엑셀 파일 읽기
-        df = pd.read_excel(file.file)
-        # 날짜 컬럼을 문자열로 변환 (YYYY-MM-DD 형식)
-        holidays = df['date'].dt.strftime('%Y-%m-%d').tolist()
+        # 파일 확장자 체크
+        if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+            return {"error": "CSV 또는 Excel 파일만 업로드 가능합니다."}
+
+        holidays = []
+        content = await file.read()
+        
+        # CSV 파일 처리
+        if file.filename.endswith('.csv'):
+            text = content.decode('utf-8')
+            csv_reader = csv.DictReader(StringIO(text))
+            for row in csv_reader:
+                try:
+                    # date 컬럼에서 날짜 읽기
+                    date_str = row['date'].strip()
+                    # 날짜 형식 검증
+                    datetime.strptime(date_str, "%Y-%m-%d")
+                    holidays.append(date_str)
+                except (ValueError, KeyError):
+                    continue
+        else:
+            return {"error": "현재는 CSV 파일만 지원합니다. 엑셀 파일은 CSV로 변환 후 업로드해주세요."}
+        
+        if not holidays:
+            return {"error": "유효한 날짜를 찾을 수 없습니다."}
         
         # 설정 업데이트
-        settings['holidays'] = holidays
+        settings['holidays'] = sorted(list(set(holidays)))  # 중복 제거 및 정렬
         save_settings(settings)
         
         return {"message": f"{len(holidays)}개의 휴일이 업로드되었습니다."}
