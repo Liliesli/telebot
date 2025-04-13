@@ -192,11 +192,35 @@ def convert_time_to_kst(time_str):
     kr_time = us_time.astimezone(kst)
     return kr_time.strftime("%H:%M")
 
+def get_weekday_kr(date_str):
+    """날짜 문자열을 받아서 한글 요일을 반환"""
+    date = datetime.strptime(date_str, "%Y-%m-%d")
+    weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+    return weekdays[date.weekday()]
+
+def clean_past_holidays():
+    """지난 날짜를 제거하고 남은 날짜를 정렬"""
+    today = get_us_time().date()
+    settings['holidays'] = sorted([
+        date for date in settings['holidays']
+        if datetime.strptime(date, "%Y-%m-%d").date() >= today
+    ])
+    save_settings(settings)
+
 @app.get("/")
 async def root(request: Request):
+    # 지난 날짜 제거 및 정렬
+    clean_past_holidays()
+    
     # 현재 설정된 시간들의 한국 시간 변환값 계산
     open_kr_time = convert_time_to_kst(settings["alarms"]["open"]["target_time"])
     close_kr_time = convert_time_to_kst(settings["alarms"]["close"]["target_time"])
+    
+    # 휴일 목록에 요일 정보 추가
+    holidays_with_weekday = [
+        {"date": date, "weekday": get_weekday_kr(date)}
+        for date in settings['holidays']
+    ]
     
     return templates.TemplateResponse(
         "index.html",
@@ -204,7 +228,8 @@ async def root(request: Request):
             "request": request, 
             "settings": settings,
             "open_kr_time": open_kr_time,
-            "close_kr_time": close_kr_time
+            "close_kr_time": close_kr_time,
+            "holidays_with_weekday": holidays_with_weekday
         }
     )
 

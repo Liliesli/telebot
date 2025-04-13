@@ -147,11 +147,11 @@
                         <div>
                             <h6>설정된 휴일 목록</h6>
                             <div class="holiday-list">
-                                {% for holiday in settings['holidays'] %}
+                                {% for holiday in holidays_with_weekday %}
                                 <div class="holiday-item">
-                                    <span>{{ holiday }}</span>
+                                    <span>{{ holiday.date }} ({{ holiday.weekday }})</span>
                                     <form action="/remove-holiday" method="post" style="display: inline;">
-                                        <input type="hidden" name="date" value="{{ holiday }}">
+                                        <input type="hidden" name="date" value="{{ holiday.date }}">
                                         <button type="submit" class="btn btn-danger btn-sm">삭제</button>
                                     </form>
                                 </div>
