@@ -1,0 +1,4 @@
+  File "/Users/kimjihyo/Desktop/alert/new.py", line 34
+    target_time = time(23, 04)  # 목표 시간: 10:25
+                            ^
+SyntaxError: leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers
