@@ -83,18 +83,20 @@ async def send_daily_message(alarm_type):
     print(f"메시지 전송 완료: {message}")
 
 async def get_next_run_time(target_time):
-    now = get_korea_time()
-    print(f"현재 시간: {now}")
+    now = get_us_time()
+    print(f"현재 미국 시간: {now}")
     
-    # 오늘 날짜에 설정된 시간을 결합
+    # 오늘 날짜에 설정된 시간을 결합 (미국 시간 기준)
     next_run = datetime.combine(now.date(), target_time)
-    next_run = next_run.replace(tzinfo=kst)
-    print(f"다음 실행 시간: {next_run}")
+    next_run = next_run.replace(tzinfo=edt)
+    print(f"다음 실행 시간 (미국): {next_run}")
+    print(f"다음 실행 시간 (한국): {next_run.astimezone(kst)}")
     
     # 현재 시간이 설정된 시간보다 늦으면 다음날로 설정
     if now > next_run:
         next_run += timedelta(days=1)
-        print(f"다음날로 설정됨: {next_run}")
+        print(f"다음날로 설정됨 (미국): {next_run}")
+        print(f"다음날로 설정됨 (한국): {next_run.astimezone(kst)}")
     
     return next_run
 
@@ -116,10 +118,10 @@ async def run_bot():
 
             # 설정된 시간을 파싱
             target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
-            print(f"현재 설정된 {alarm_type} 시간: {alarm_settings['target_time']}")
+            print(f"현재 설정된 {alarm_type} 시간 (미국): {alarm_settings['target_time']}")
             
             next_run = await get_next_run_time(target_time)
-            now = get_korea_time()
+            now = get_us_time()
             
             wait_seconds = (next_run - now).total_seconds()
             print(f"{alarm_type} 대기 시간: {wait_seconds}초")
@@ -161,12 +163,32 @@ async def startup_event():
     threading.Thread(target=ping_server, daemon=True).start()
     await restart_bot()
 
-# 웹 라우트
+def convert_time_to_kst(time_str):
+    """미국 시간을 한국 시간으로 변환"""
+    if not time_str:
+        return ""
+    # 오늘 날짜의 미국 시간을 기준으로 datetime 객체 생성
+    us_time = datetime.combine(get_us_time().date(), 
+                             datetime.strptime(time_str, "%H:%M").time())
+    us_time = us_time.replace(tzinfo=edt)
+    # 한국 시간으로 변환
+    kr_time = us_time.astimezone(kst)
+    return kr_time.strftime("%H:%M")
+
 @app.get("/")
 async def root(request: Request):
+    # 현재 설정된 시간들의 한국 시간 변환값 계산
+    open_kr_time = convert_time_to_kst(settings["alarms"]["open"]["target_time"])
+    close_kr_time = convert_time_to_kst(settings["alarms"]["close"]["target_time"])
+    
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "settings": settings}
+        {
+            "request": request, 
+            "settings": settings,
+            "open_kr_time": open_kr_time,
+            "close_kr_time": close_kr_time
+        }
     )
 
 @app.post("/settings")

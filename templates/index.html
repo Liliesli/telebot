@@ -45,9 +45,12 @@
                             <div class="alarm-section">
                                 <h2 class="h5 mb-3">오픈 알람</h2>
                                 <div class="form-group">
-                                    <label for="open_time" class="form-label">알람 시간</label>
+                                    <label for="open_time" class="form-label">알람 시간 (미국 시간)</label>
                                     <input type="time" class="form-control" id="open_time" name="open_time" 
                                            value="{{ settings['alarms']['open']['target_time'] }}" required>
+                                    {% if open_kr_time %}
+                                    <small class="form-text text-muted">한국 시간: {{ open_kr_time }}</small>
+                                    {% endif %}
                                 </div>
                                 <div class="form-group">
                                     <div class="form-check">
@@ -69,9 +72,12 @@
                             <div class="alarm-section">
                                 <h2 class="h5 mb-3">마감 알람</h2>
                                 <div class="form-group">
-                                    <label for="close_time" class="form-label">알람 시간</label>
+                                    <label for="close_time" class="form-label">알람 시간 (미국 시간)</label>
                                     <input type="time" class="form-control" id="close_time" name="close_time" 
                                            value="{{ settings['alarms']['close']['target_time'] }}" required>
+                                    {% if close_kr_time %}
+                                    <small class="form-text text-muted">한국 시간: {{ close_kr_time }}</small>
+                                    {% endif %}
                                 </div>
                                 <div class="form-group">
                                     <div class="form-check">
