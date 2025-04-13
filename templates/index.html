@@ -21,27 +21,11 @@
         .form-group {
             margin-bottom: 15px;
         }
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        input[type="time"], input[type="text"] {
-            width: 200px;
-            padding: 5px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
         .manual-send {
-            margin-top: 10px;
+            margin-top: 15px;
+        }
+        .settings-form {
+            margin-bottom: 30px;
         }
     </style>
 </head>
@@ -51,54 +35,78 @@
         
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">설정</h5>
-                <form action="/settings" method="post">
-                    <div class="alarm-section">
-                        <h2>오픈 알람</h2>
-                        <div class="form-group">
-                            <label for="open_time" class="form-label">알람 시간</label>
-                            <input type="time" class="form-control" id="open_time" name="open_time" 
-                                   value="{{ settings['alarms']['open']['target_time'] }}" required>
+                <h5 class="card-title mb-4">알람 설정</h5>
+                
+                <!-- 설정 폼 -->
+                <form action="/settings" method="post" class="settings-form">
+                    <div class="row">
+                        <!-- 오픈 알람 설정 -->
+                        <div class="col-md-6">
+                            <div class="alarm-section">
+                                <h2 class="h5 mb-3">오픈 알람</h2>
+                                <div class="form-group">
+                                    <label for="open_time" class="form-label">알람 시간</label>
+                                    <input type="time" class="form-control" id="open_time" name="open_time" 
+                                           value="{{ settings['alarms']['open']['target_time'] }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="open_active" name="open_active" 
+                                               {% if settings['alarms']['open']['is_active'] %}checked{% endif %}>
+                                        <label class="form-check-label" for="open_active">알람 활성화</label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="open_message" class="form-label">알람 메시지</label>
+                                    <input type="text" class="form-control" id="open_message" name="open_message" 
+                                           value="{{ settings['alarms']['open']['message'] }}" required>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="open_active" class="form-label">알람 활성화</label>
-                            <input type="checkbox" class="form-check-input" id="open_active" name="open_active" 
-                                   {% if settings['alarms']['open']['is_active'] %}checked{% endif %}>
+
+                        <!-- 마감 알람 설정 -->
+                        <div class="col-md-6">
+                            <div class="alarm-section">
+                                <h2 class="h5 mb-3">마감 알람</h2>
+                                <div class="form-group">
+                                    <label for="close_time" class="form-label">알람 시간</label>
+                                    <input type="time" class="form-control" id="close_time" name="close_time" 
+                                           value="{{ settings['alarms']['close']['target_time'] }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="close_active" name="close_active" 
+                                               {% if settings['alarms']['close']['is_active'] %}checked{% endif %}>
+                                        <label class="form-check-label" for="close_active">알람 활성화</label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="close_message" class="form-label">알람 메시지</label>
+                                    <input type="text" class="form-control" id="close_message" name="close_message" 
+                                           value="{{ settings['alarms']['close']['message'] }}" required>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="open_message" class="form-label">알람 메시지</label>
-                            <input type="text" class="form-control" id="open_message" name="open_message" 
-                                   value="{{ settings['alarms']['open']['message'] }}" required>
-                        </div>
-                        <form action="/send_now/open" method="post" class="manual-send">
-                            <button type="submit" class="btn btn-success">지금 메시지 보내기</button>
-                        </form>
                     </div>
 
-                    <div class="alarm-section">
-                        <h2>마감 알람</h2>
-                        <div class="form-group">
-                            <label for="close_time" class="form-label">알람 시간</label>
-                            <input type="time" class="form-control" id="close_time" name="close_time" 
-                                   value="{{ settings['alarms']['close']['target_time'] }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="close_active" class="form-label">알람 활성화</label>
-                            <input type="checkbox" class="form-check-input" id="close_active" name="close_active" 
-                                   {% if settings['alarms']['close']['is_active'] %}checked{% endif %}>
-                        </div>
-                        <div class="form-group">
-                            <label for="close_message" class="form-label">알람 메시지</label>
-                            <input type="text" class="form-control" id="close_message" name="close_message" 
-                                   value="{{ settings['alarms']['close']['message'] }}" required>
-                        </div>
-                        <form action="/send_now/close" method="post" class="manual-send">
-                            <button type="submit" class="btn btn-success">지금 메시지 보내기</button>
-                        </form>
+                    <div class="text-center mt-3">
+                        <button type="submit" class="btn btn-primary">설정 저장</button>
                     </div>
-
-                    <button type="submit" class="btn btn-primary">설정 저장</button>
                 </form>
+
+                <!-- 수동 전송 버튼들 -->
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <form action="/send_now/open" method="post" class="manual-send text-center">
+                            <button type="submit" class="btn btn-success">오픈 메시지 수동 전송</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <form action="/send_now/close" method="post" class="manual-send text-center">
+                            <button type="submit" class="btn btn-success">마감 메시지 수동 전송</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
