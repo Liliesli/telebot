@@ -9,14 +9,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 import uvicorn
 
-
-import threading
-import requests
-import time
-
-
-
-
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
@@ -33,9 +25,18 @@ SETTINGS_FILE = "settings.json"
 
 # 기본 설정
 DEFAULT_SETTINGS = {
-    "target_time": "22:30",
-    "is_active": True,
-    "message": "미장 알람"
+    "alarms": {
+        "open": {
+            "target_time": "",
+            "is_active": True,
+            "message": "미장 오픈"
+        },
+        "close": {
+            "target_time": "",
+            "is_active": True,
+            "message": "미장 닫음"
+        }
+    }
 }
 
 def load_settings():
@@ -63,32 +64,12 @@ templates = Jinja2Templates(directory="templates")
 # 봇 태스크를 저장할 변수
 bot_task = None
 
-# 주기적으로 서버에 ping을 보내는 함수
-def ping_server():
-    while True:
-        try:
-            # Render.com에서 제공하는 서버 URL로 대체
-            requests.get("https://telebot-1frg.onrender.com")
-            print("서버에 ping 전송")
-        except Exception as e:
-            print(f"ping 전송 중 오류 발생: {e}")
-        time.sleep(600)  # 10분마다 ping 전송
-
-# 서버 시작 시 ping 스레드 시작
-@app.on_event("startup")
-async def startup_event():
-    print("서버 시작됨")
-    # ping 스레드 시작
-    threading.Thread(target=ping_server, daemon=True).start()
-    await restart_bot()
-
-
-async def send_daily_message():
+async def send_daily_message(alarm_type):
     token = BOT_TOKEN
     chat_id = CHANNEL_ID
     bot = telegram.Bot(token=token)
 
-    message = settings["message"]
+    message = settings["alarms"][alarm_type]["message"]
     await bot.send_message(chat_id, message)
     print(f"메시지 전송 완료: {message}")
 
@@ -111,25 +92,28 @@ async def get_next_run_time(target_time):
 async def run_bot():
     print("봇 시작됨")
     while True:
-        if not settings["is_active"]:
-            print("알람이 비활성화되어 있음")
-            await asyncio.sleep(60)
-            continue
+        for alarm_type in ["open", "close"]:
+            alarm_settings = settings["alarms"][alarm_type]
+            
+            if not alarm_settings["is_active"] or not alarm_settings["target_time"]:
+                print(f"{alarm_type} 알람이 비활성화되어 있거나 시간이 설정되지 않음")
+                continue
 
-        # 설정된 시간을 파싱
-        target_time = datetime.strptime(settings["target_time"], "%H:%M").time()
-        print(f"현재 설정된 시간: {settings['target_time']}")
-        
-        next_run = await get_next_run_time(target_time)
-        now = get_korea_time()
-        
-        wait_seconds = (next_run - now).total_seconds()
-        print(f"대기 시간: {wait_seconds}초")
-        
-        if wait_seconds > 0:
-            await asyncio.sleep(wait_seconds)
-        
-        await send_daily_message()
+            # 설정된 시간을 파싱
+            target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
+            print(f"현재 설정된 {alarm_type} 시간: {alarm_settings['target_time']}")
+            
+            next_run = await get_next_run_time(target_time)
+            now = get_korea_time()
+            
+            wait_seconds = (next_run - now).total_seconds()
+            print(f"{alarm_type} 대기 시간: {wait_seconds}초")
+            
+            if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
+                await asyncio.sleep(wait_seconds)
+                await send_daily_message(alarm_type)
+
+        await asyncio.sleep(30)  # 30초마다 체크
 
 async def restart_bot():
     global bot_task
@@ -156,22 +140,37 @@ async def root(request: Request):
 
 @app.post("/settings")
 async def update_settings(
-    target_time: str = Form(...),
-    is_active: bool = Form(False),
-    message: str = Form(...)
+    open_time: str = Form(...),
+    open_active: bool = Form(False),
+    open_message: str = Form(...),
+    close_time: str = Form(...),
+    close_active: bool = Form(False),
+    close_message: str = Form(...)
 ):
-    print(f"설정 업데이트: 시간={target_time}, 활성화={is_active}, 메시지={message}")
-    settings["target_time"] = target_time
-    settings["is_active"] = is_active
-    settings["message"] = message
+    print(f"설정 업데이트: 오픈={open_time}, 마감={close_time}")
+    
+    settings["alarms"]["open"].update({
+        "target_time": open_time,
+        "is_active": open_active,
+        "message": open_message
+    })
+    
+    settings["alarms"]["close"].update({
+        "target_time": close_time,
+        "is_active": close_active,
+        "message": close_message
+    })
+    
     save_settings(settings)  # 설정을 파일에 저장
     await restart_bot()  # 봇 재시작
     return RedirectResponse(url="/", status_code=303)
 
-@app.post("/send_now")
-async def send_now():
-    print("수동 메시지 전송 요청")
-    await send_daily_message()
+@app.post("/send_now/{alarm_type}")
+async def send_now(alarm_type: str):
+    if alarm_type not in ["open", "close"]:
+        return {"error": "Invalid alarm type"}
+    print(f"수동 메시지 전송 요청: {alarm_type}")
+    await send_daily_message(alarm_type)
     return RedirectResponse(url="/", status_code=303)
 
 if __name__ == "__main__":
