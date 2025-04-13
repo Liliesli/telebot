@@ -132,23 +132,9 @@
                     <div class="card-body">
                         <h5 class="card-title">휴일 관리</h5>
                         
-                        <!-- 엑셀 파일 업로드 -->
-                        <div class="mb-4">
-                            <h6>CSV 파일로 휴일 업로드</h6>
-                            <form action="/upload-holidays" method="post" enctype="multipart/form-data" class="mb-3">
-                                <div class="input-group">
-                                    <input type="file" class="form-control" name="file" accept=".csv" required>
-                                    <button type="submit" class="btn btn-primary">업로드</button>
-                                </div>
-                                <small class="text-muted">* CSV 파일의 'date' 컬럼에 날짜를 입력해주세요 (YYYY-MM-DD 형식)</small>
-                                <br>
-                                <small class="text-muted">* 엑셀 파일을 사용하시는 경우, CSV 형식으로 저장 후 업로드해주세요.</small>
-                            </form>
-                        </div>
-
                         <!-- 수동 휴일 추가 -->
                         <div class="mb-4">
-                            <h6>수동으로 휴일 추가</h6>
+                            <h6>휴일 추가</h6>
                             <form action="/add-holiday" method="post" class="mb-3">
                                 <div class="input-group">
                                     <input type="date" class="form-control" name="date" required>
