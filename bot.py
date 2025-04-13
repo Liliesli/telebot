@@ -7,10 +7,12 @@ import requests
 import time
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta, timezone
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 import uvicorn
+import pandas as pd
+from typing import List
 
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -45,7 +47,8 @@ DEFAULT_SETTINGS = {
             "is_active": True,
             "message": "미장 닫음"
         }
-    }
+    },
+    "holidays": []  # 알람을 보내지 않을 날짜들 (형식: "YYYY-MM-DD")
 }
 
 def load_settings():
@@ -100,6 +103,11 @@ async def get_next_run_time(target_time):
     
     return next_run
 
+def is_holiday(date):
+    """주어진 날짜가 휴일인지 확인"""
+    date_str = date.strftime("%Y-%m-%d")
+    return date_str in settings["holidays"]
+
 async def run_bot():
     print("봇 시작됨")
     while True:
@@ -111,9 +119,15 @@ async def run_bot():
                 continue
 
             us_now = get_us_time()
+            
             # 주말(토요일=5, 일요일=6) 체크 - 미국 시간 기준
             if us_now.weekday() >= 5:
                 print(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                continue
+                
+            # 휴일 체크
+            if is_holiday(us_now.date()):
+                print(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
                 continue
 
             # 설정된 시간을 파싱
@@ -128,9 +142,13 @@ async def run_bot():
             
             if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
                 await asyncio.sleep(wait_seconds)
-                # 대기 후 다시 한번 주말 체크 - 미국 시간 기준
-                if get_us_time().weekday() >= 5:
+                # 대기 후 다시 한번 주말과 휴일 체크
+                us_now = get_us_time()
+                if us_now.weekday() >= 5:
                     print(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                    continue
+                if is_holiday(us_now.date()):
+                    print(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
                     continue
                 await send_daily_message(alarm_type)
 
@@ -225,6 +243,43 @@ async def send_now(alarm_type: str):
     print(f"수동 메시지 전송 요청: {alarm_type}")
     await send_daily_message(alarm_type)
     return RedirectResponse(url="/", status_code=303)
+
+@app.post("/upload-holidays")
+async def upload_holidays(file: UploadFile = File(...)):
+    try:
+        # 엑셀 파일 읽기
+        df = pd.read_excel(file.file)
+        # 날짜 컬럼을 문자열로 변환 (YYYY-MM-DD 형식)
+        holidays = df['date'].dt.strftime('%Y-%m-%d').tolist()
+        
+        # 설정 업데이트
+        settings['holidays'] = holidays
+        save_settings(settings)
+        
+        return {"message": f"{len(holidays)}개의 휴일이 업로드되었습니다."}
+    except Exception as e:
+        return {"error": f"파일 업로드 중 오류 발생: {str(e)}"}
+
+@app.post("/add-holiday")
+async def add_holiday(date: str):
+    try:
+        # 날짜 형식 검증
+        datetime.strptime(date, "%Y-%m-%d")
+        if date not in settings['holidays']:
+            settings['holidays'].append(date)
+            settings['holidays'].sort()
+            save_settings(settings)
+        return {"message": f"휴일 {date}가 추가되었습니다."}
+    except ValueError:
+        return {"error": "잘못된 날짜 형식입니다. YYYY-MM-DD 형식으로 입력해주세요."}
+
+@app.post("/remove-holiday")
+async def remove_holiday(date: str):
+    if date in settings['holidays']:
+        settings['holidays'].remove(date)
+        save_settings(settings)
+        return {"message": f"휴일 {date}가 제거되었습니다."}
+    return {"error": "해당 날짜를 찾을 수 없습니다."}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)

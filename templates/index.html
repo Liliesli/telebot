@@ -27,6 +27,19 @@
         .settings-form {
             margin-bottom: 30px;
         }
+        .holiday-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .holiday-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -111,6 +124,52 @@
                         <form action="/send_now/close" method="post" class="manual-send text-center">
                             <button type="submit" class="btn btn-success">마감 메시지 지금 전송</button>
                         </form>
+                    </div>
+                </div>
+
+                <!-- 휴일 관리 섹션 -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h5 class="card-title">휴일 관리</h5>
+                        
+                        <!-- 엑셀 파일 업로드 -->
+                        <div class="mb-4">
+                            <h6>엑셀 파일로 휴일 업로드</h6>
+                            <form action="/upload-holidays" method="post" enctype="multipart/form-data" class="mb-3">
+                                <div class="input-group">
+                                    <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>
+                                    <button type="submit" class="btn btn-primary">업로드</button>
+                                </div>
+                                <small class="text-muted">* 엑셀 파일의 'date' 컬럼에 날짜를 입력해주세요 (YYYY-MM-DD 형식)</small>
+                            </form>
+                        </div>
+
+                        <!-- 수동 휴일 추가 -->
+                        <div class="mb-4">
+                            <h6>수동으로 휴일 추가</h6>
+                            <form action="/add-holiday" method="post" class="mb-3">
+                                <div class="input-group">
+                                    <input type="date" class="form-control" name="date" required>
+                                    <button type="submit" class="btn btn-success">추가</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- 휴일 목록 -->
+                        <div>
+                            <h6>설정된 휴일 목록</h6>
+                            <div class="holiday-list">
+                                {% for holiday in settings['holidays'] %}
+                                <div class="holiday-item">
+                                    <span>{{ holiday }}</span>
+                                    <form action="/remove-holiday" method="post" style="display: inline;">
+                                        <input type="hidden" name="date" value="{{ holiday }}">
+                                        <button type="submit" class="btn btn-danger btn-sm">삭제</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
