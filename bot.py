@@ -13,7 +13,6 @@ from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 import uvicorn
-import pandas as pd
 from typing import List
 
 load_dotenv()
