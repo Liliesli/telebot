@@ -283,7 +283,7 @@ async def upload_holidays(file: UploadFile = File(...)):
         return {"error": f"파일 업로드 중 오류 발생: {str(e)}"}
 
 @app.post("/add-holiday")
-async def add_holiday(date: str):
+async def add_holiday(date: str = Form(...)):
     try:
         # 날짜 형식 검증
         datetime.strptime(date, "%Y-%m-%d")
@@ -291,17 +291,16 @@ async def add_holiday(date: str):
             settings['holidays'].append(date)
             settings['holidays'].sort()
             save_settings(settings)
-        return {"message": f"휴일 {date}가 추가되었습니다."}
+        return RedirectResponse(url="/", status_code=303)
     except ValueError:
         return {"error": "잘못된 날짜 형식입니다. YYYY-MM-DD 형식으로 입력해주세요."}
 
 @app.post("/remove-holiday")
-async def remove_holiday(date: str):
+async def remove_holiday(date: str = Form(...)):
     if date in settings['holidays']:
         settings['holidays'].remove(date)
         save_settings(settings)
-        return {"message": f"휴일 {date}가 제거되었습니다."}
-    return {"error": "해당 날짜를 찾을 수 없습니다."}
+    return RedirectResponse(url="/", status_code=303)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)
