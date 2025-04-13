@@ -37,12 +37,12 @@ SETTINGS_FILE = "settings.json"
 DEFAULT_SETTINGS = {
     "alarms": {
         "open": {
-            "target_time": "",
+            "target_time": "09:00",
             "is_active": True,
             "message": "미장 오픈"
         },
         "close": {
-            "target_time": "",
+            "target_time": "20:00",
             "is_active": True,
             "message": "미장 닫음"
         }
@@ -54,7 +54,16 @@ def load_settings():
     try:
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                loaded_settings = json.load(f)
+                # 기존 설정과 기본 설정을 병합
+                merged_settings = DEFAULT_SETTINGS.copy()
+                if "alarms" in loaded_settings:
+                    for alarm_type in ["open", "close"]:
+                        if alarm_type in loaded_settings["alarms"]:
+                            merged_settings["alarms"][alarm_type].update(loaded_settings["alarms"][alarm_type])
+                if "holidays" in loaded_settings:
+                    merged_settings["holidays"] = loaded_settings["holidays"]
+                return merged_settings
     except Exception as e:
         print(f"설정 파일 로드 중 오류 발생: {e}")
     return DEFAULT_SETTINGS.copy()
