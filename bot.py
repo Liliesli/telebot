@@ -5,6 +5,8 @@ import json
 import threading
 import requests
 import time
+import logging
+from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta, timezone
 from fastapi import FastAPI, Request, Form
@@ -12,6 +14,23 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 import uvicorn
 from typing import List
+
+# 로깅 설정
+logger = logging.getLogger('alert_bot')
+logger.setLevel(logging.INFO)
+
+# 로그 포맷 설정
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# 파일 핸들러 설정 (최대 10MB, 백업 5개)
+file_handler = RotatingFileHandler('alert_bot.log', maxBytes=10*1024*1024, backupCount=5, encoding='utf-8')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# 콘솔 핸들러 설정
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
 
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -65,7 +84,7 @@ def load_settings():
                     merged_settings["holidays"] = loaded_settings["holidays"]
                 return merged_settings
     except Exception as e:
-        print(f"설정 파일 로드 중 오류 발생: {e}")
+        logger.error(f"설정 파일 로드 중 오류 발생: {e}")
     return DEFAULT_SETTINGS.copy()
 
 def save_settings(settings):
@@ -73,7 +92,7 @@ def save_settings(settings):
         with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
             json.dump(settings, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"설정 파일 저장 중 오류 발생: {e}")
+        logger.error(f"설정 파일 저장 중 오류 발생: {e}")
 
 # 전역 변수로 설정 저장
 settings = load_settings()
@@ -91,23 +110,23 @@ async def send_daily_message(alarm_type):
 
     message = settings["alarms"][alarm_type]["message"]
     await bot.send_message(chat_id, message)
-    print(f"메시지 전송 완료: {message}")
+    logger.info(f"메시지 전송 완료: {message}")
 
 async def get_next_run_time(target_time):
     now = get_us_time()
-    print(f"현재 미국 시간: {now}")
+    logger.info(f"현재 미국 시간: {now}")
     
     # 오늘 날짜에 설정된 시간을 결합 (미국 시간 기준)
     next_run = datetime.combine(now.date(), target_time)
     next_run = next_run.replace(tzinfo=edt)
-    print(f"다음 실행 시간 (미국): {next_run}")
-    print(f"다음 실행 시간 (한국): {next_run.astimezone(kst)}")
+    logger.info(f"다음 실행 시간 (미국): {next_run}")
+    logger.info(f"다음 실행 시간 (한국): {next_run.astimezone(kst)}")
     
     # 현재 시간이 설정된 시간보다 늦으면 다음날로 설정
     if now > next_run:
         next_run += timedelta(days=1)
-        print(f"다음날로 설정됨 (미국): {next_run}")
-        print(f"다음날로 설정됨 (한국): {next_run.astimezone(kst)}")
+        logger.info(f"다음날로 설정됨 (미국): {next_run}")
+        logger.info(f"다음날로 설정됨 (한국): {next_run.astimezone(kst)}")
     
     return next_run
 
@@ -117,46 +136,46 @@ def is_holiday(date):
     return date_str in settings["holidays"]
 
 async def run_bot():
-    print("봇 시작됨")
+    logger.info("봇 시작됨")
     while True:
         for alarm_type in ["open", "close"]:
             alarm_settings = settings["alarms"][alarm_type]
             
             if not alarm_settings["is_active"] or not alarm_settings["target_time"]:
-                print(f"{alarm_type} 알람이 비활성화되어 있거나 시간이 설정되지 않음")
+                logger.info(f"{alarm_type} 알람이 비활성화되어 있거나 시간이 설정되지 않음")
                 continue
 
             us_now = get_us_time()
             
             # 주말(토요일=5, 일요일=6) 체크 - 미국 시간 기준
             if us_now.weekday() >= 5:
-                print(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
                 continue
                 
             # 휴일 체크
             if is_holiday(us_now.date()):
-                print(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
+                logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
                 continue
 
             # 설정된 시간을 파싱
             target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
-            print(f"현재 설정된 {alarm_type} 시간 (미국): {alarm_settings['target_time']}")
+            logger.info(f"현재 설정된 {alarm_type} 시간 (미국): {alarm_settings['target_time']}")
             
             next_run = await get_next_run_time(target_time)
             now = get_us_time()
             
             wait_seconds = (next_run - now).total_seconds()
-            print(f"{alarm_type} 대기 시간: {wait_seconds}초")
+            logger.info(f"{alarm_type} 대기 시간: {wait_seconds}초")
             
             if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
                 await asyncio.sleep(wait_seconds)
                 # 대기 후 다시 한번 주말과 휴일 체크
                 us_now = get_us_time()
                 if us_now.weekday() >= 5:
-                    print(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                    logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
                     continue
                 if is_holiday(us_now.date()):
-                    print(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
+                    logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
                     continue
                 await send_daily_message(alarm_type)
 
@@ -167,24 +186,24 @@ async def restart_bot():
     if bot_task:
         bot_task.cancel()
     bot_task = asyncio.create_task(run_bot())
-    print("봇 재시작됨")
+    logger.info("봇 재시작됨")
 
 # 주기적으로 서버에 ping을 보내는 함수
 def ping_server():
     while True:
         try:
             requests.get(SERVER_URL)
-            print("서버에 ping 전송")
+            logger.info("서버에 ping 전송")
         except Exception as e:
-            print(f"ping 전송 중 오류 발생: {e}")
+            logger.error(f"ping 전송 중 오류 발생: {e}")
         time.sleep(600)  # 10분마다 ping 전송
 
 @app.on_event("startup")
 async def startup_event():
-    print("서버 시작됨")
+    logger.info("서버 시작됨")
     # 시작 시 현재 시간 확인
     now = get_korea_time()
-    print(f"서버 시작 시간: {now}")
+    logger.info(f"서버 시작 시간: {now}")
     # ping 스레드 시작
     threading.Thread(target=ping_server, daemon=True).start()
     await restart_bot()
@@ -251,7 +270,7 @@ async def update_settings(
     close_active: bool = Form(False),
     close_message: str = Form(...)
 ):
-    print(f"설정 업데이트: 오픈={open_time}, 마감={close_time}")
+    logger.info(f"설정 업데이트: 오픈={open_time}, 마감={close_time}")
     
     settings["alarms"]["open"].update({
         "target_time": open_time,
@@ -273,7 +292,7 @@ async def update_settings(
 async def send_now(alarm_type: str):
     if alarm_type not in ["open", "close"]:
         return {"error": "Invalid alarm type"}
-    print(f"수동 메시지 전송 요청: {alarm_type}")
+    logger.info(f"수동 메시지 전송 요청: {alarm_type}")
     await send_daily_message(alarm_type)
     return RedirectResponse(url="/", status_code=303)
 
