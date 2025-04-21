@@ -138,48 +138,59 @@ def is_holiday(date):
 async def run_bot():
     logger.info("봇 시작됨")
     while True:
-        for alarm_type in ["open", "close"]:
-            alarm_settings = settings["alarms"][alarm_type]
-            
-            if not alarm_settings["is_active"] or not alarm_settings["target_time"]:
-                logger.info(f"{alarm_type} 알람이 비활성화되어 있거나 시간이 설정되지 않음")
-                continue
+        try:
+            for alarm_type in ["open", "close"]:
+                try:
+                    alarm_settings = settings["alarms"][alarm_type]
+                    
+                    if not alarm_settings["is_active"] or not alarm_settings["target_time"]:
+                        logger.info(f"{alarm_type} 알람이 비활성화되어 있거나 시간이 설정되지 않음")
+                        continue
 
-            us_now = get_us_time()
-            
-            # 주말(토요일=5, 일요일=6) 체크 - 미국 시간 기준
-            if us_now.weekday() >= 5:
-                logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
-                continue
-                
-            # 휴일 체크
-            if is_holiday(us_now.date()):
-                logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
-                continue
+                    us_now = get_us_time()
+                    
+                    # 주말(토요일=5, 일요일=6) 체크 - 미국 시간 기준
+                    if us_now.weekday() >= 5:
+                        logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                        continue
+                        
+                    # 휴일 체크
+                    if is_holiday(us_now.date()):
+                        logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
+                        continue
 
-            # 설정된 시간을 파싱
-            target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
-            logger.info(f"현재 설정된 {alarm_type} 시간 (미국): {alarm_settings['target_time']}")
-            
-            next_run = await get_next_run_time(target_time)
-            now = get_us_time()
-            
-            wait_seconds = (next_run - now).total_seconds()
-            logger.info(f"{alarm_type} 대기 시간: {wait_seconds}초")
-            
-            if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
-                await asyncio.sleep(wait_seconds)
-                # 대기 후 다시 한번 주말과 휴일 체크
-                us_now = get_us_time()
-                if us_now.weekday() >= 5:
-                    logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                    # 설정된 시간을 파싱
+                    target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
+                    logger.info(f"현재 설정된 {alarm_type} 시간 (미국): {alarm_settings['target_time']}")
+                    
+                    next_run = await get_next_run_time(target_time)
+                    now = get_us_time()
+                    
+                    wait_seconds = (next_run - now).total_seconds()
+                    logger.info(f"{alarm_type} 대기 시간: {wait_seconds}초")
+                    
+                    if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
+                        await asyncio.sleep(wait_seconds)
+                        # 대기 후 다시 한번 주말과 휴일 체크
+                        us_now = get_us_time()
+                        if us_now.weekday() >= 5:
+                            logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                            continue
+                        if is_holiday(us_now.date()):
+                            logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
+                            continue
+                        await send_daily_message(alarm_type)
+                except Exception as e:
+                    logger.error(f"{alarm_type} 알람 처리 중 오류 발생: {e}")
                     continue
-                if is_holiday(us_now.date()):
-                    logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
-                    continue
-                await send_daily_message(alarm_type)
 
-        await asyncio.sleep(30)  # 30초마다 체크
+            await asyncio.sleep(30)  # 30초마다 체크
+        except asyncio.CancelledError:
+            logger.warning("봇 태스크가 취소됨")
+            raise
+        except Exception as e:
+            logger.error(f"봇 실행 중 예외 발생: {e}")
+            await asyncio.sleep(5)  # 오류 발생 시 5초 대기 후 재시도
 
 async def restart_bot():
     global bot_task
@@ -192,8 +203,13 @@ async def restart_bot():
 def ping_server():
     while True:
         try:
-            requests.get(SERVER_URL)
-            logger.info("서버에 ping 전송")
+            response = requests.get(SERVER_URL, timeout=10)  # 10초 타임아웃 추가
+            if response.status_code == 200:
+                logger.info("서버에 ping 전송 성공")
+            else:
+                logger.warning(f"서버 ping 응답 코드: {response.status_code}")
+        except requests.Timeout:
+            logger.error("서버 ping 타임아웃")
         except Exception as e:
             logger.error(f"ping 전송 중 오류 발생: {e}")
         time.sleep(600)  # 10분마다 ping 전송
@@ -326,5 +342,28 @@ async def remove_holiday(date: str = Form(...)):
         save_settings(settings)
     return RedirectResponse(url="/", status_code=303)
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.warning("서버 종료 이벤트 발생")
+    try:
+        if bot_task:
+            logger.info("봇 태스크 정리 중...")
+            bot_task.cancel()
+            try:
+                await bot_task
+            except asyncio.CancelledError:
+                logger.info("봇 태스크가 정상적으로 취소됨")
+    except Exception as e:
+        logger.error(f"서버 종료 중 오류 발생: {e}")
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    try:
+        uvicorn.run(
+            "bot:app",
+            host="0.0.0.0",
+            port=PORT,
+            reload=True,
+            log_level="info"
+        )
+    except Exception as e:
+        logger.error(f"서버 실행 중 치명적 오류 발생: {e}")
