@@ -204,6 +204,16 @@ async def startup_event():
     # 시작 시 현재 시간 확인
     now = get_korea_time()
     logger.info(f"서버 시작 시간: {now}")
+    
+    # 현재 설정된 알람 시간 로깅
+    open_time = settings["alarms"]["open"]["target_time"]
+    close_time = settings["alarms"]["close"]["target_time"]
+    open_kr_time = convert_time_to_kst(open_time)
+    close_kr_time = convert_time_to_kst(close_time)
+    
+    logger.info(f"설정된 오픈 시간 - 미국: {open_time}, 한국: {open_kr_time}")
+    logger.info(f"설정된 마감 시간 - 미국: {close_time}, 한국: {close_kr_time}")
+    
     # ping 스레드 시작
     threading.Thread(target=ping_server, daemon=True).start()
     await restart_bot()
