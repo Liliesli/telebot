@@ -14,23 +14,19 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 import uvicorn
 from typing import List
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import traceback
+
 
 # 로깅 설정
-logger = logging.getLogger('alert_bot')
-logger.setLevel(logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-# 로그 포맷 설정
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-# 파일 핸들러 설정 (최대 10MB, 백업 5개)
-file_handler = RotatingFileHandler('alert_bot.log', maxBytes=10*1024*1024, backupCount=5, encoding='utf-8')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
-# 콘솔 핸들러 설정
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
 
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -149,7 +145,7 @@ async def run_bot():
 
                     us_now = get_us_time()
                     
-                    # 주말(토요일=5, 일요일=6) 체크 - 미국 시간 기준
+                    # 주말 체크
                     if us_now.weekday() >= 5:
                         logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
                         continue
@@ -159,27 +155,24 @@ async def run_bot():
                         logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
                         continue
 
-                    # 설정된 시간을 파싱
                     target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
-                    logger.info(f"현재 설정된 {alarm_type} 시간 (미국): {alarm_settings['target_time']}")
-                    
                     next_run = await get_next_run_time(target_time)
                     now = get_us_time()
                     
                     wait_seconds = (next_run - now).total_seconds()
                     logger.info(f"{alarm_type} 대기 시간: {wait_seconds}초")
                     
-                    if wait_seconds > 0 and wait_seconds <= 60:  # 1분 이내로 실행되어야 할 때
-                        await asyncio.sleep(wait_seconds)
-                        # 대기 후 다시 한번 주말과 휴일 체크
+                    # 수정된 시간 체크 로직
+                    if -60 <= wait_seconds <= 60:  # 목표 시간 전후 1분 이내
+                        if wait_seconds > 0:
+                            await asyncio.sleep(wait_seconds)
+                        # 최종 체크
                         us_now = get_us_time()
-                        if us_now.weekday() >= 5:
-                            logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
-                            continue
-                        if is_holiday(us_now.date()):
-                            logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
+                        if us_now.weekday() >= 5 or is_holiday(us_now.date()):
                             continue
                         await send_daily_message(alarm_type)
+                        # 메시지 전송 후 다음 날까지 대기
+                        await asyncio.sleep(3600)  # 1시간 대기
                 except Exception as e:
                     logger.error(f"{alarm_type} 알람 처리 중 오류 발생: {e}")
                     continue
