@@ -4,11 +4,11 @@ import os
 import json
 import threading
 import requests
-import time
+import time as time_module
 import logging
 from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
@@ -196,7 +196,8 @@ async def restart_bot():
 def ping_server():
     while True:
         try:
-            response = requests.get(SERVER_URL, timeout=10)  # 10초 타임아웃 추가
+            # HEAD 대신 GET 요청 사용
+            response = requests.get(SERVER_URL, timeout=10, params={'ping': 'true'})
             if response.status_code == 200:
                 logger.info("서버에 ping 전송 성공")
             else:
@@ -205,7 +206,7 @@ def ping_server():
             logger.error("서버 ping 타임아웃")
         except Exception as e:
             logger.error(f"ping 전송 중 오류 발생: {e}")
-        time.sleep(600)  # 10분마다 ping 전송
+        time_module.sleep(600)
 
 @app.on_event("startup")
 async def startup_event():
@@ -348,6 +349,10 @@ async def shutdown_event():
                 logger.info("봇 태스크가 정상적으로 취소됨")
     except Exception as e:
         logger.error(f"서버 종료 중 오류 발생: {e}")
+
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     try:
