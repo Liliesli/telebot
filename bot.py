@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
-PORT = int(os.getenv('PORT', 8000))
+PORT = int(os.getenv('PORT', 10000))
 SERVER_URL = os.getenv('SERVER_URL', 'https://telebot-1frg.onrender.com')  # 서버 URL 환경변수 추가
 
 # 한국 시간대 고정 (UTC+9)
