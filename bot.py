@@ -146,14 +146,14 @@ async def run_bot():
                     us_now = get_us_time()
                     
                     # 주말 체크
-                    if us_now.weekday() >= 5:
-                        logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
-                        continue
+                    # if us_now.weekday() >= 5:
+                    #     logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
+                    #     continue
                         
-                    # 휴일 체크
-                    if is_holiday(us_now.date()):
-                        logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
-                        continue
+                    # # 휴일 체크
+                    # if is_holiday(us_now.date()):
+                    #     logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
+                    #     continue
 
                     target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
                     next_run = await get_next_run_time(target_time)
@@ -169,10 +169,11 @@ async def run_bot():
                         # 최종 체크
                         us_now = get_us_time()
                         if us_now.weekday() >= 5 or is_holiday(us_now.date()):
+                            logger.info(f"{alarm_type} 알람을 보내지 않습니다.")
                             continue
                         await send_daily_message(alarm_type)
                         # 메시지 전송 후 다음 날까지 대기
-                        await asyncio.sleep(3600)  # 1시간 대기
+                        # await asyncio.sleep(3600)  # 1시간 대기
                 except Exception as e:
                     logger.error(f"{alarm_type} 알람 처리 중 오류 발생: {e}")
                     continue
