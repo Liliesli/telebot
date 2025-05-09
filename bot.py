@@ -34,6 +34,9 @@ CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
 PORT = int(os.getenv('PORT', 10000))
 SERVER_URL = os.getenv('SERVER_URL', 'https://telebot-1frg.onrender.com')  # 서버 URL 환경변수 추가
 
+
+
+
 # 한국 시간대 고정 (UTC+9)
 kst = timezone(timedelta(hours=9))
 # 미국 시간대 추가 (UTC-4, EDT)
@@ -45,6 +48,9 @@ def get_korea_time():
 def get_us_time():
     return datetime.now(edt)
 
+
+
+
 # 설정 파일 경로
 SETTINGS_FILE = "settings.json"
 
@@ -52,12 +58,12 @@ SETTINGS_FILE = "settings.json"
 DEFAULT_SETTINGS = {
     "alarms": {
         "open": {
-            "target_time": "09:00",
+            "target_time": "09:30",
             "is_active": True,
             "message": "미장 오픈"
         },
         "close": {
-            "target_time": "20:00",
+            "target_time": "16:00",
             "is_active": True,
             "message": "미장 닫음"
         }
@@ -70,15 +76,14 @@ def load_settings():
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 loaded_settings = json.load(f)
-                # 기존 설정과 기본 설정을 병합
-                merged_settings = DEFAULT_SETTINGS.copy()
+                new_settings = DEFAULT_SETTINGS.copy()
                 if "alarms" in loaded_settings:
                     for alarm_type in ["open", "close"]:
                         if alarm_type in loaded_settings["alarms"]:
-                            merged_settings["alarms"][alarm_type].update(loaded_settings["alarms"][alarm_type])
+                            new_settings["alarms"][alarm_type] = loaded_settings["alarms"][alarm_type]
                 if "holidays" in loaded_settings:
-                    merged_settings["holidays"] = loaded_settings["holidays"]
-                return merged_settings
+                    new_settings["holidays"] = loaded_settings["holidays"]
+                return new_settings
     except Exception as e:
         logger.error(f"설정 파일 로드 중 오류 발생: {e}")
     return DEFAULT_SETTINGS.copy()
@@ -90,11 +95,15 @@ def save_settings(settings):
     except Exception as e:
         logger.error(f"설정 파일 저장 중 오류 발생: {e}")
 
+
+
+
 # 전역 변수로 설정 저장
 settings = load_settings()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
 
 # 봇 태스크를 저장할 변수
 bot_task = None
@@ -107,6 +116,7 @@ async def send_daily_message(alarm_type):
     message = settings["alarms"][alarm_type]["message"]
     await bot.send_message(chat_id, message)
     logger.info(f"메시지 전송 완료: {message}")
+
 
 async def get_next_run_time(target_time):
     now = get_us_time()
@@ -126,13 +136,16 @@ async def get_next_run_time(target_time):
     
     return next_run
 
+
 def is_holiday(date):
     """주어진 날짜가 휴일인지 확인"""
     date_str = date.strftime("%Y-%m-%d")
     return date_str in settings["holidays"]
 
+
+
 async def run_bot():
-    logger.info("봇 시작됨")
+    # logger.info("봇 시작됨")
     while True:
         try:
             for alarm_type in ["open", "close"]:
@@ -144,32 +157,20 @@ async def run_bot():
                         continue
 
                     us_now = get_us_time()
-                    
-                    # 주말 체크
-                    # if us_now.weekday() >= 5:
-                    #     logger.info(f"미국 시간 기준 주말이므로 {alarm_type} 알람을 보내지 않습니다.")
-                    #     continue
-                        
-                    # # 휴일 체크
-                    # if is_holiday(us_now.date()):
-                    #     logger.info(f"휴일이므로 {alarm_type} 알람을 보내지 않습니다.")
-                    #     continue
 
                     target_time = datetime.strptime(alarm_settings["target_time"], "%H:%M").time()
                     next_run = await get_next_run_time(target_time)
-                    now = get_us_time()
                     
-                    wait_seconds = (next_run - now).total_seconds()
-                    logger.info(f"{alarm_type} 대기 시간: {wait_seconds}초")
-                    
-                    # 수정된 시간 체크 로직
+                    wait_seconds = (next_run - us_now).total_seconds()
+                
                     if -60 <= wait_seconds <= 60:  # 목표 시간 전후 1분 이내
+                        logger.info(f"{alarm_type} 대기 시간: {wait_seconds}초")
                         if wait_seconds > 0:
                             await asyncio.sleep(wait_seconds)
                         # 최종 체크
                         us_now = get_us_time()
                         if us_now.weekday() >= 5 or is_holiday(us_now.date()):
-                            logger.info(f"{alarm_type} 알람을 보내지 않습니다.")
+                            logger.info(f"{alarm_type} 알람을 보내지 않습니다: {us_now.date()}는 주말 또는 휴일입니다.")
                             continue
                         await send_daily_message(alarm_type)
                         # 메시지 전송 후 다음 날까지 대기
@@ -179,6 +180,7 @@ async def run_bot():
                     continue
 
             await asyncio.sleep(30)  # 30초마다 체크
+
         except asyncio.CancelledError:
             logger.warning("봇 태스크가 취소됨")
             raise
@@ -208,6 +210,9 @@ def ping_server():
         except Exception as e:
             logger.error(f"ping 전송 중 오류 발생: {e}")
         time_module.sleep(600)
+
+
+
 
 @app.on_event("startup")
 async def startup_event():
