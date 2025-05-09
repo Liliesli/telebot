@@ -125,8 +125,8 @@ async def get_next_run_time(target_time):
     # 오늘 날짜에 설정된 시간을 결합 (미국 시간 기준)
     next_run = datetime.combine(now.date(), target_time)
     next_run = next_run.replace(tzinfo=edt)
-    logger.info(f"다음 실행 시간 (미국): {next_run}")
-    logger.info(f"다음 실행 시간 (한국): {next_run.astimezone(kst)}")
+    # logger.info(f"다음 실행 시간 (미국): {next_run}")
+    # logger.info(f"다음 실행 시간 (한국): {next_run.astimezone(kst)}")
     
     # 현재 시간이 설정된 시간보다 늦으면 다음날로 설정
     if now > next_run:
